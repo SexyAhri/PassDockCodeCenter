@@ -1,0 +1,85 @@
+name: Deploy To Remote
+
+on:
+  workflow_run:
+    workflows:
+      - Build And Publish Images
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: Git ref to check out on the server
+        required: false
+        default: main
+      image_tag:
+        description: Image tag to deploy, for example latest or sha-<fullsha>
+        required: false
+        default: latest
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'master'))
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Compute deploy parameters
+        id: prep
+        shell: bash
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          repo="${GITHUB_REPOSITORY#*/}"
+          repo="${repo,,}"
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_run" ]]; then
+            remote_ref="${{ github.event.workflow_run.head_sha }}"
+            image_tag="sha-${{ github.event.workflow_run.head_sha }}"
+          else
+            remote_ref="${{ inputs.git_ref }}"
+            image_tag="${{ inputs.image_tag }}"
+          fi
+
+          echo "owner=$owner" >> "$GITHUB_OUTPUT"
+          echo "repo=$repo" >> "$GITHUB_OUTPUT"
+          echo "remote_ref=$remote_ref" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$image_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_APP_PATH: ${{ secrets.DEPLOY_APP_PATH }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          PASSDOCK_REGISTRY: ghcr.io
+          PASSDOCK_IMAGE_PREFIX: ${{ steps.prep.outputs.owner }}/${{ steps.prep.outputs.repo }}
+          PASSDOCK_IMAGE_TAG: ${{ steps.prep.outputs.image_tag }}
+          REMOTE_GIT_REF: ${{ steps.prep.outputs.remote_ref }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: DEPLOY_APP_PATH,GHCR_USERNAME,GHCR_TOKEN,PASSDOCK_REGISTRY,PASSDOCK_IMAGE_PREFIX,PASSDOCK_IMAGE_TAG,REMOTE_GIT_REF
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_APP_PATH"
+
+            git fetch --all --tags --prune
+            git checkout --force "$REMOTE_GIT_REF"
+
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+
+            export PASSDOCK_REGISTRY
+            export PASSDOCK_IMAGE_PREFIX
+            export PASSDOCK_IMAGE_TAG
+
+            docker compose -f deploy/passdock-docker-compose.sqlite.pull.yml pull
+            docker compose -f deploy/passdock-docker-compose.sqlite.pull.yml up -d --remove-orphans

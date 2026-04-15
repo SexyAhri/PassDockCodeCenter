@@ -1,0 +1,113 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        VITE_API_BASE_URL: ""
+        VITE_LOCAL_DEMO_MODE: "false"
+        VITE_ADMIN_BEARER_TOKEN: ""
+    image: ${PASSDOCK_WEB_IMAGE:-passdock/web:local}
+    container_name: passdock-web
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_healthy
+    ports:
+      - "${PASSDOCK_WEB_PORT:-8080}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    image: ${PASSDOCK_SERVER_IMAGE:-passdock/server:local}
+    container_name: passdock-server
+    restart: unless-stopped
+    env_file:
+      - path: ./passdock.env
+        required: true
+    depends_on:
+      okx-watcher:
+        condition: service_healthy
+      new-api-adapter:
+        condition: service_healthy
+    environment:
+      APP_PORT: 8080
+      DB_DRIVER: sqlite
+      SQLITE_PATH: /app/data/passdock.db
+      STORAGE_TYPE: local
+      STORAGE_LOCAL_PATH: /app/storage
+      OKX_WATCHER_API_URL: http://okx-watcher:8090/api/scan
+      NEW_API_PROD_BASE_URL: http://new-api-adapter:8070
+      NEW_API_STAGING_BASE_URL: http://new-api-adapter:8070
+    volumes:
+      - ./data:/app/data
+      - ./storage:/app/storage
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/readyz >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  okx-watcher:
+    build:
+      context: .
+      dockerfile: Dockerfile.okxwatcher
+    image: ${PASSDOCK_OKX_WATCHER_IMAGE:-passdock/okxwatcher:local}
+    container_name: passdock-okx-watcher
+    restart: unless-stopped
+    env_file:
+      - path: ./passdock.env
+        required: true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:${OKX_ADAPTER_PORT:-8090}/healthz >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  new-api-adapter:
+    build:
+      context: .
+      dockerfile: Dockerfile.newapiadapter
+    image: ${PASSDOCK_NEW_API_ADAPTER_IMAGE:-passdock/newapiadapter:local}
+    container_name: passdock-new-api-adapter
+    restart: unless-stopped
+    env_file:
+      - path: ./passdock.env
+        required: true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:${NEW_API_ADAPTER_PORT:-8070}/healthz >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - ./newapi-adapter-data:/app/data
+
+  minio:
+    image: minio/minio:latest
+    container_name: passdock-minio
+    restart: unless-stopped
+    profiles:
+      - minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-passdock}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-replace_me_minio}
+    command: server /data --console-address ":9001"
+    ports:
+      - "${PASSDOCK_MINIO_API_PORT:-19000}:9000"
+      - "${PASSDOCK_MINIO_CONSOLE_PORT:-19001}:9001"
+    volumes:
+      - ./minio-data:/data
+
+networks:
+  default:
+    name: passdock-sqlite-production
