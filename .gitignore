@@ -23,6 +23,8 @@ logs/
 postgres-data/
 minio-data/
 newapi-adapter-data/
+!apps/web/src/data/
+!apps/web/src/data/*.ts
 
 apps/server/data/
 apps/server/storage/
