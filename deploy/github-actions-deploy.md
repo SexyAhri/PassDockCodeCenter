@@ -5,6 +5,8 @@ This repository now includes:
 - image build workflow: `.github/workflows/build-images.yml`
 - remote deploy workflow: `.github/workflows/deploy-remote.yml`
 - server-side pull compose: `deploy/passdock-docker-compose.sqlite.pull.yml`
+- server bootstrap helper: `deploy/server-bootstrap.sh`
+- secrets checklist: `deploy/github-actions-secrets-checklist.md`
 
 ## 1. How the release flow works
 
