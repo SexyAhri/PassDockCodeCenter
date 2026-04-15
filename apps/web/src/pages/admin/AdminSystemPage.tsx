@@ -195,6 +195,9 @@ export function AdminSystemPage(props: AdminSystemPageProps) {
         const targetId = sectionConfig.getTargetId(record)
         void runSystemSectionTest(targetId, 'auto')
       },
+      onToggleEnabled: (record, enabled) => {
+        void handleToggleRecord(record, enabled)
+      },
     },
   })
 
@@ -581,6 +584,45 @@ export function AdminSystemPage(props: AdminSystemPageProps) {
       }
 
       setSelectedRowKeys([])
+      message.success(labels.saved)
+    } catch (nextError) {
+      message.error(getActionErrorMessage(nextError, locale))
+    }
+  }
+
+  async function handleToggleRecord(
+    record: Record<string, unknown>,
+    enabled: boolean,
+  ) {
+    if (!sectionConfig.module || !sectionConfig.getTargetId) {
+      return
+    }
+
+    const targetId = sectionConfig.getTargetId(record)
+
+    try {
+      if (remoteEnabled && supportsRemoteSystemSection(activeSection)) {
+        await saveAdminSystemSectionRecord(activeSection, 'edit', {
+          ...record,
+          enabled,
+        })
+        await reload()
+      } else {
+        setDraft((prev) =>
+          updateSectionEnabled(
+            prev,
+            activeSection,
+            [targetId],
+            enabled,
+            operator,
+            sectionConfig.module!,
+          ),
+        )
+      }
+
+      setSelectedRowKeys((prev) =>
+        prev.filter((key) => String(key) !== String(record.key ?? '')),
+      )
       message.success(labels.saved)
     } catch (nextError) {
       message.error(getActionErrorMessage(nextError, locale))

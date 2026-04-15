@@ -40,6 +40,7 @@ export type StorefrontOrderSnapshot = {
   billingCycle: string
   paymentInstruction: StorefrontPaymentInstruction | null
   paymentProofs: StorefrontPaymentProof[]
+  deliveryResult: StorefrontDeliveryResult | null
 }
 
 export type StorefrontDeliveryResult = Record<string, unknown>
@@ -106,6 +107,7 @@ type OrderDto = {
   billing_cycle?: string
   payment_instruction?: PaymentInstructionDto | null
   payment_proofs?: PaymentProofDto[]
+  delivery_result?: Record<string, unknown> | null
 }
 
 export async function createStorefrontOrder(input: CreateStorefrontOrderInput) {
@@ -217,6 +219,7 @@ export function normalizeStorefrontOrder(value: unknown, fallback?: Partial<Crea
     billingCycle: String(dto.billing_cycle ?? fallback?.billingCycle ?? ''),
     paymentInstruction,
     paymentProofs: normalizePaymentProofs(dto.payment_proofs),
+    deliveryResult: normalizeDetailPayload(dto.delivery_result),
   } satisfies StorefrontOrderSnapshot
 }
 

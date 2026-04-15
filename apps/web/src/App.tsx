@@ -250,6 +250,7 @@ function AppView(props: {
             loading={storefront.loading}
             error={storefront.error}
             onBack={() => navigateTo('/shop')}
+            onNavigate={navigateTo}
           />
         ) : route.key === 'orders' ? (
           <LazyStorefrontOrdersPage

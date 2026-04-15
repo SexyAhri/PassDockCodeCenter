@@ -237,7 +237,7 @@ func (s *Service) ListPublicPaymentChannels(ctx context.Context) ([]map[string]a
 
 	result := make([]map[string]any, 0, len(channels))
 	for _, item := range channels {
-		config := normalizePaymentChannelConfig(parseJSON[paymentChannelConfig](item.ConfigJSON), item.ChannelName)
+		config := s.storefrontPaymentChannelConfig(&item)
 		modeLabelZH := defaultString(config.ModeLabelZH, defaultPublicPaymentModeLabel(item.ChannelType, item.SettlementMode, item.ProviderName, "zh-CN"))
 		modeLabelEN := defaultString(config.ModeLabelEN, defaultPublicPaymentModeLabel(item.ChannelType, item.SettlementMode, item.ProviderName, "en-US"))
 		result = append(result, map[string]any{
@@ -454,7 +454,7 @@ func (s *Service) GetStorefrontOrder(ctx context.Context, value string) (map[str
 
 	var channel model.PaymentChannel
 	_ = s.db.WithContext(ctx).Where("channel_type = ?", order.PaymentMethod).First(&channel).Error
-	config := parseJSON[paymentChannelConfig](channel.ConfigJSON)
+	config := s.storefrontPaymentChannelConfig(&channel)
 
 	proofs := make([]map[string]any, 0, len(order.PaymentProofs))
 	for _, proof := range order.PaymentProofs {
@@ -473,6 +473,10 @@ func (s *Service) GetStorefrontOrder(ctx context.Context, value string) (map[str
 
 	reviewTimeoutMinutes := s.paymentReviewTimeoutMinutes(ctx)
 	reviewDueAt, reviewOverdue := paymentReviewDeadlineWithTimeout(order, reviewTimeoutMinutes)
+	var deliveryResult any
+	if embeddedDeliveryResult := s.buildStorefrontEmbeddedDeliveryResult(ctx, order); embeddedDeliveryResult != nil {
+		deliveryResult = embeddedDeliveryResult
+	}
 
 	return map[string]any{
 		"order_no":           order.OrderNo,
@@ -500,6 +504,7 @@ func (s *Service) GetStorefrontOrder(ctx context.Context, value string) (map[str
 			"reference":      config.Reference,
 		},
 		"payment_proofs":                 proofs,
+		"delivery_result":                deliveryResult,
 		"order_expire_minutes":           s.orderExpireMinutes(ctx),
 		"payment_review_timeout_minutes": reviewTimeoutMinutes,
 		"payment_review_due_at":          reviewDueAt,
@@ -698,6 +703,9 @@ func (s *Service) GetStorefrontOrderDelivery(ctx context.Context, orderNo string
 	if err != nil {
 		return nil, err
 	}
+	if order.PaymentStatus != "paid" {
+		return nil, nil
+	}
 
 	var delivery model.DeliveryRecord
 	_ = s.db.WithContext(ctx).Where("order_id = ?", order.ID).Order("id DESC").First(&delivery).Error
@@ -727,6 +735,22 @@ func (s *Service) GetStorefrontOrderDelivery(ctx context.Context, orderNo string
 		"issued_count":             len(codes),
 		"delivered_at":             delivery.DeliveredAt,
 	}, nil
+}
+
+func (s *Service) buildStorefrontEmbeddedDeliveryResult(
+	ctx context.Context,
+	order *model.Order,
+) map[string]any {
+	if order == nil || order.ID == 0 || order.PaymentStatus != "paid" {
+		return nil
+	}
+
+	result, err := s.GetStorefrontOrderDelivery(ctx, order.OrderNo)
+	if err != nil || len(result) == 0 {
+		return nil
+	}
+
+	return result
 }
 
 func (s *Service) GetPublicStorefrontOrderDelivery(

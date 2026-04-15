@@ -21,7 +21,6 @@ import {
   getStorefrontDeliveryResultFieldLabels,
   getStorefrontDeliveryResultPreferredKeys,
 } from '../../storefront/orders/presentation'
-import { persistStoredStorefrontOrder } from '../../storefront/orders/storage'
 
 type StorefrontOrdersPageProps = {
   locale: Locale
@@ -36,7 +35,6 @@ export function StorefrontOrdersPage(props: StorefrontOrdersPageProps) {
   const labels = getOrdersPageLabels(locale)
   const ordersCenter = useStorefrontOrdersCenter({ products })
   const selectedOrder = ordersCenter.selectedEntry?.order ?? null
-  const selectedProduct = ordersCenter.selectedProduct
   const support = useStorefrontSupport(selectedOrder?.orderNo, selectedOrder?.orderAccessToken)
 
   const stats = [
@@ -88,11 +86,15 @@ export function StorefrontOrdersPage(props: StorefrontOrdersPageProps) {
     }
   })
 
+  const selectedProductName = selectedOrder
+    ? products.find((item) => item.sku === ordersCenter.selectedEntry?.productSku)?.name ?? '-'
+    : '-'
+
   const orderItems = selectedOrder
     ? [
         { label: labels.fields.orderNo, value: selectedOrder.orderNo },
         { label: labels.fields.accessToken, value: selectedOrder.orderAccessToken || '-' },
-        { label: labels.fields.product, value: selectedProduct?.name ?? '-' },
+        { label: labels.fields.product, value: selectedProductName },
         {
           label: labels.fields.amount,
           value: `${selectedOrder.displayAmount || '-'} ${selectedOrder.currency || ''}`.trim(),
@@ -131,7 +133,7 @@ export function StorefrontOrdersPage(props: StorefrontOrdersPageProps) {
       await support.createTicket(values)
       message.success(labels.supportTicketCreated)
     } catch {
-      // The support panel already surfaces request errors inline.
+      // The hook already exposes request errors inline.
     }
   }
 
@@ -151,6 +153,50 @@ export function StorefrontOrdersPage(props: StorefrontOrdersPageProps) {
             <span>{item.label}</span>
           </article>
         ))}
+      </section>
+
+      <section className="store-orders-lead">
+        <div className="store-orders-lead__copy">
+          <strong>{labels.workspaceTitle}</strong>
+          <p>{labels.workspaceDescription}</p>
+        </div>
+
+        <div className="store-orders-lead__aside">
+          {selectedOrder ? (
+            <>
+              <div className="store-orders-lead__meta">
+                <span>{selectedProductName}</span>
+                <strong>{selectedOrder.orderNo}</strong>
+              </div>
+
+              <div className="store-orders-lead__tags">
+                <Tag>{formatStorefrontOrderStatus(selectedOrder.orderStatus, locale)}</Tag>
+                <Tag color="processing">{formatStorefrontPaymentStatus(selectedOrder.paymentStatus, locale)}</Tag>
+                <Tag color="success">{formatStorefrontDeliveryStatus(selectedOrder.deliveryStatus, locale)}</Tag>
+                <Tag color={getOrderSourceColor(ordersCenter.selectedSource)}>
+                  {getOrderSourceLabel(labels, ordersCenter.selectedSource)}
+                </Tag>
+              </div>
+
+              <div className="checkout-order__actions">
+                <Button size="small" loading={ordersCenter.loading} onClick={() => void ordersCenter.refreshSelectedOrder()}>
+                  {labels.refresh}
+                </Button>
+                {canLoadDeliveryResult ? (
+                  <Button
+                    size="small"
+                    loading={ordersCenter.loading}
+                    onClick={() => void ordersCenter.loadSelectedDeliveryResult()}
+                  >
+                    {labels.loadDeliveryResult}
+                  </Button>
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <div className="store-orders-lead__empty">{labels.selectHint}</div>
+          )}
+        </div>
       </section>
 
       {ordersCenter.error ? (
@@ -183,48 +229,39 @@ export function StorefrontOrdersPage(props: StorefrontOrdersPageProps) {
         </div>
 
         <div className="store-orders-main">
-          <CheckoutSection
-            title={labels.detailTitle}
-            extra={
-              selectedOrder ? (
-                <div className="checkout-order__actions">
-                  <Tag color={getOrderSourceColor(ordersCenter.selectedSource)}>
-                    {getOrderSourceLabel(labels, ordersCenter.selectedSource)}
-                  </Tag>
-                  <Button size="small" loading={ordersCenter.loading} onClick={() => void ordersCenter.refreshSelectedOrder()}>
-                    {labels.refresh}
-                  </Button>
-                  {canLoadDeliveryResult ? (
-                    <Button
-                      size="small"
-                      loading={ordersCenter.loading}
-                      onClick={() => void ordersCenter.loadSelectedDeliveryResult()}
-                    >
-                      {labels.loadDeliveryResult}
-                    </Button>
-                  ) : null}
-                  {selectedProduct ? (
-                    <Button
-                      size="small"
-                      type="primary"
-                      onClick={() => {
-                        persistStoredStorefrontOrder(selectedProduct.sku, selectedOrder)
-                        onNavigate(`/products/${selectedProduct.sku}`)
-                      }}
-                    >
-                      {labels.openWorkspace}
-                    </Button>
-                  ) : null}
-                </div>
-              ) : null
-            }
-          >
+          <CheckoutSection title={labels.detailTitle}>
             {selectedOrder ? (
               <CheckoutKeyValueGrid items={orderItems} compact />
             ) : (
               <div className="store-orders-empty store-orders-empty--inline">{labels.selectHint}</div>
             )}
           </CheckoutSection>
+
+          {selectedOrder ? (
+            <CheckoutSection title={labels.timelineTitle}>
+              <CheckoutKeyValueGrid
+                items={[
+                  {
+                    label: labels.fields.createdAt,
+                    value: formatStorefrontDateTime(String(ordersCenter.selectedEntry?.updatedAt ?? ''), locale),
+                  },
+                  {
+                    label: labels.fields.orderStatus,
+                    value: formatStorefrontOrderStatus(selectedOrder.orderStatus, locale),
+                  },
+                  {
+                    label: labels.fields.paymentStatus,
+                    value: formatStorefrontPaymentStatus(selectedOrder.paymentStatus, locale),
+                  },
+                  {
+                    label: labels.fields.deliveryStatus,
+                    value: formatStorefrontDeliveryStatus(selectedOrder.deliveryStatus, locale),
+                  },
+                ]}
+                compact
+              />
+            </CheckoutSection>
+          ) : null}
 
           {selectedOrder ? (
             <DetailRecordSection
@@ -254,31 +291,6 @@ export function StorefrontOrdersPage(props: StorefrontOrdersPageProps) {
             />
           ) : null}
 
-          {selectedOrder ? (
-            <CheckoutSection title={labels.timelineTitle}>
-              <CheckoutKeyValueGrid
-                items={[
-                  {
-                    label: labels.fields.createdAt,
-                    value: formatStorefrontDateTime(String(ordersCenter.selectedEntry?.updatedAt ?? ''), locale),
-                  },
-                  {
-                    label: labels.fields.orderStatus,
-                    value: formatStorefrontOrderStatus(selectedOrder.orderStatus, locale),
-                  },
-                  {
-                    label: labels.fields.paymentStatus,
-                    value: formatStorefrontPaymentStatus(selectedOrder.paymentStatus, locale),
-                  },
-                  {
-                    label: labels.fields.deliveryStatus,
-                    value: formatStorefrontDeliveryStatus(selectedOrder.deliveryStatus, locale),
-                  },
-                ]}
-                compact
-              />
-            </CheckoutSection>
-          ) : null}
         </div>
       </div>
     </div>
@@ -290,19 +302,29 @@ function getOrdersPageLabels(locale: Locale) {
 
   return {
     title: isZh ? '订单中心' : 'Order center',
-    subtitle: isZh ? '通过订单号和查单码查询订单、刷新状态并拉取交付结果。' : 'Use the order number and access token to query orders, refresh status, and load delivery results.',
-    backToShop: isZh ? '继续选购' : 'Back to products',
+    subtitle:
+      isZh
+        ? '订单查询、付款凭证、交付结果和售后支持都在这里处理。'
+        : 'Handle order lookup, payment proofs, delivery results, and support here.',
+    backToShop: isZh ? '返回商品' : 'Back to products',
+    workspaceTitle: isZh ? '订单工作台' : 'Order workspace',
+    workspaceDescription:
+      isZh
+        ? '左侧负责查单和切换订单，右侧统一处理状态、交付结果、付款凭证和售后支持。'
+        : 'Use the left side for lookup and order switching, then manage status, delivery results, payment proofs, and support on the right.',
     orderListTitle: isZh ? '订单列表' : 'Order list',
     detailTitle: isZh ? '订单详情' : 'Order detail',
     deliveryResult: isZh ? '交付结果' : 'Delivery result',
     deliveryResultEmpty: isZh ? '当前还没有可展示的交付结果。' : 'No delivery result is available yet.',
     paymentProofs: isZh ? '付款凭证' : 'Payment proofs',
     timelineTitle: isZh ? '状态快照' : 'Status snapshot',
-    empty: isZh ? '当前浏览器还没有已保存订单，可用订单号和查单码查询。' : 'No saved orders in this browser yet. Use the order number and access token to look one up.',
+    empty:
+      isZh
+        ? '当前浏览器还没有保存订单，可用订单号和查单码查询。'
+        : 'No saved orders in this browser yet. Use the order number and access token to look one up.',
     selectHint: isZh ? '从左侧选择一个订单查看详情。' : 'Select an order from the left to inspect it.',
     refresh: isZh ? '刷新' : 'Refresh',
     loadDeliveryResult: isZh ? '拉取结果' : 'Load result',
-    openWorkspace: isZh ? '打开工作区' : 'Open workspace',
     supportTicketCreated: isZh ? '工单已提交，支持团队会继续跟进。' : 'Support ticket submitted.',
     remoteReady: isZh ? '远程接口' : 'Remote API',
     localDraft: isZh ? '本地草稿' : 'Local draft',

@@ -154,7 +154,7 @@ func TestFulfillmentFailureSchedulesAsyncRetryAndSweepRecovers(t *testing.T) {
 	}
 }
 
-func TestDeliveryFailureSchedulesAsyncRetryAndSweepReplaysUpdatedStrategy(t *testing.T) {
+func TestTelegramDeliveryStrategyFallsBackToWebDelivery(t *testing.T) {
 	svc := newSystemSecurityTestService(t, config.Config{
 		AsyncConcurrency:          1,
 		AsyncPollIntervalSeconds:  1,
@@ -219,44 +219,8 @@ func TestDeliveryFailureSchedulesAsyncRetryAndSweepReplaysUpdatedStrategy(t *tes
 		t.Fatalf("FulfillAdminOrder returned error: %v", err)
 	}
 
-	if err := svc.DeliverAdminOrder(context.Background(), orderNo, AuditMeta{}); err == nil {
-		t.Fatalf("expected initial DeliverAdminOrder to fail without telegram runtime credentials")
-	}
-
-	var pendingJobs []model.AsyncJob
-	if err := svc.db.WithContext(context.Background()).
-		Where("order_no = ? AND job_type = ? AND status = ?", orderNo, asyncJobTypeDeliveryRetry, asyncJobStatusPending).
-		Find(&pendingJobs).Error; err != nil {
-		t.Fatalf("load pending delivery async jobs returned error: %v", err)
-	}
-	if len(pendingJobs) != 1 {
-		t.Fatalf("expected 1 pending delivery retry job, got %d", len(pendingJobs))
-	}
-	if err := svc.db.WithContext(context.Background()).
-		Model(&model.AsyncJob{}).
-		Where("id = ?", pendingJobs[0].ID).
-		Update("run_at", pendingJobs[0].RunAt.Add(-2*time.Second)).Error; err != nil {
-		t.Fatalf("move delivery async job run_at returned error: %v", err)
-	}
-
-	if err := svc.UpsertAdminDeliveryStrategy(context.Background(), "telegram_and_web_default", DeliveryStrategyUpsertInput{
-		StrategyKey:     "telegram_and_web_default",
-		StrategyName:    "Telegram and web default",
-		ChannelType:     "web",
-		MaskPolicy:      "show_last_6",
-		ResendAllowed:   true,
-		Enabled:         true,
-		MessageTemplate: map[string]any{"title": "Web delivery"},
-	}); err != nil {
-		t.Fatalf("UpsertAdminDeliveryStrategy returned error: %v", err)
-	}
-
-	sweep, err := svc.RunAsyncJobSweep(context.Background())
-	if err != nil {
-		t.Fatalf("RunAsyncJobSweep returned error: %v", err)
-	}
-	if sweep.Succeeded != 1 {
-		t.Fatalf("expected delivery async sweep to succeed once, got %#v", sweep)
+	if err := svc.DeliverAdminOrder(context.Background(), orderNo, AuditMeta{}); err != nil {
+		t.Fatalf("DeliverAdminOrder returned error: %v", err)
 	}
 
 	order, err := svc.resolveOrderByNo(context.Background(), orderNo)
@@ -264,10 +228,30 @@ func TestDeliveryFailureSchedulesAsyncRetryAndSweepReplaysUpdatedStrategy(t *tes
 		t.Fatalf("resolveOrderByNo returned error: %v", err)
 	}
 	if order.Status != "completed" {
-		t.Fatalf("expected order completed after async delivery retry, got %q", order.Status)
+		t.Fatalf("expected order completed after telegram fallback delivery, got %q", order.Status)
 	}
 	if order.DeliveryStatus != "sent" {
-		t.Fatalf("expected delivery status sent after async delivery retry, got %q", order.DeliveryStatus)
+		t.Fatalf("expected delivery status sent after telegram fallback delivery, got %q", order.DeliveryStatus)
+	}
+
+	var deliveries []model.DeliveryRecord
+	if err := svc.db.WithContext(context.Background()).
+		Where("order_id = ?", order.ID).
+		Order("id ASC").
+		Find(&deliveries).Error; err != nil {
+		t.Fatalf("load delivery records returned error: %v", err)
+	}
+	if len(deliveries) != 1 {
+		t.Fatalf("expected 1 delivery record, got %d", len(deliveries))
+	}
+	if deliveries[0].DeliveryChannel != "web" {
+		t.Fatalf("expected fallback delivery channel web, got %q", deliveries[0].DeliveryChannel)
+	}
+	if deliveries[0].DeliveryStatus != "sent" {
+		t.Fatalf("expected fallback delivery record sent, got %q", deliveries[0].DeliveryStatus)
+	}
+	if deliveries[0].DeliveryTarget != "order detail" {
+		t.Fatalf("expected fallback delivery target order detail, got %q", deliveries[0].DeliveryTarget)
 	}
 
 	var jobs []model.AsyncJob
@@ -277,10 +261,7 @@ func TestDeliveryFailureSchedulesAsyncRetryAndSweepReplaysUpdatedStrategy(t *tes
 		Find(&jobs).Error; err != nil {
 		t.Fatalf("load delivery async jobs returned error: %v", err)
 	}
-	if len(jobs) != 1 {
-		t.Fatalf("expected 1 delivery async job row, got %d", len(jobs))
-	}
-	if jobs[0].Status != asyncJobStatusSucceeded {
-		t.Fatalf("expected delivery async job succeeded, got %q", jobs[0].Status)
+	if len(jobs) != 0 {
+		t.Fatalf("expected no delivery retry jobs after telegram fallback, got %d", len(jobs))
 	}
 }

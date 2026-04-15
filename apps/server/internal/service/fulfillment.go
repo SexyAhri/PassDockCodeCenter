@@ -1021,8 +1021,15 @@ func (s *Service) buildIssuedCodeFulfillmentResult(
 	execution *ExecuteActionResult,
 	extraPayload map[string]any,
 ) (*model.CodeIssueRecord, string, map[string]any, error) {
-	if order == nil || strategy == nil || record == nil || issue == nil || execution == nil || len(execution.Codes) == 0 {
+	if order == nil || strategy == nil || record == nil || issue == nil || execution == nil {
 		return nil, "", nil, ErrInvalidState
+	}
+	if len(execution.Codes) == 0 {
+		return nil, "", nil, fmt.Errorf(
+			"upstream action %s/%s returned no codes",
+			strategy.ProviderKey,
+			strategy.ActionKey,
+		)
 	}
 
 	encoded, err := json.Marshal(execution.Codes)
@@ -1223,6 +1230,9 @@ func (s *Service) resolveDeliveryChannelTarget(
 	order *model.Order,
 	channelType string,
 ) (resolvedDeliveryPayload, error) {
+	_ = ctx
+	_ = tx
+
 	result := resolvedDeliveryPayload{
 		Channel: channelType,
 		Target:  deliveryTargetForStrategy(*order, channelType),
@@ -1231,21 +1241,11 @@ func (s *Service) resolveDeliveryChannelTarget(
 	if channelType != "telegram" {
 		return result, nil
 	}
-
-	binding, err := s.resolveTelegramBindingForOrderTx(ctx, tx, order, "")
-	if err != nil {
-		return resolvedDeliveryPayload{}, err
-	}
-	if binding == nil {
-		result.Channel = "web"
-		result.Target = deliveryTargetForStrategy(*order, "web")
-		result.FallbackReason = "telegram_not_bound"
-		return result, nil
-	}
-
-	result.Channel = "telegram"
-	result.Target = binding.ChatID
-	result.BotKey = binding.BotKey
+	// Storefront orders now reveal the issued code directly on the order detail page
+	// instead of routing delivery through Telegram.
+	result.Channel = "web"
+	result.Target = deliveryTargetForStrategy(*order, "web")
+	result.FallbackReason = "telegram_disabled"
 	return result, nil
 }
 

@@ -76,6 +76,42 @@ func normalizePaymentChannelConfig(config paymentChannelConfig, fallbackDisplayN
 	return config
 }
 
+func (s *Service) storefrontPaymentChannelConfig(channel *model.PaymentChannel) paymentChannelConfig {
+	if channel == nil {
+		return paymentChannelConfig{}
+	}
+
+	config := normalizePaymentChannelConfig(parseJSON[paymentChannelConfig](channel.ConfigJSON), channel.ChannelName)
+	config.QRContent = s.resolveStorefrontPaymentQRContent(channel.ChannelType, config.QRContent)
+	return config
+}
+
+func (s *Service) resolveStorefrontPaymentQRContent(channelType, qrContent string) string {
+	trimmed := strings.TrimSpace(qrContent)
+	if channelType != "okx_usdt" {
+		return trimmed
+	}
+
+	if trimmed != "" && !looksLikeBootstrapOKXQRContent(trimmed) {
+		return trimmed
+	}
+
+	if receiveAddress := strings.TrimSpace(s.cfg.OKXAdapterReceiveAddress); receiveAddress != "" {
+		return receiveAddress
+	}
+
+	return trimmed
+}
+
+func looksLikeBootstrapOKXQRContent(value string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	if normalized == "" {
+		return true
+	}
+
+	return normalized == "okx://wallet/passdock/usdt" || strings.Contains(normalized, "passdock/usdt")
+}
+
 func buildPaymentChannelConfig(input PaymentChannelUpsertInput, existing *paymentChannelConfig) (paymentChannelConfig, error) {
 	config := paymentChannelConfig{
 		QRContent:               strings.TrimSpace(input.QRValue),

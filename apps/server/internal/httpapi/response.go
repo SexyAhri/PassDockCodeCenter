@@ -45,7 +45,11 @@ func respondError(c *gin.Context, err error) {
 		message = "invalid input"
 	case errors.Is(err, service.ErrInvalidState):
 		status = http.StatusConflict
-		message = "invalid state"
+		if err != nil && err.Error() != service.ErrInvalidState.Error() {
+			message = err.Error()
+		} else {
+			message = "invalid state"
+		}
 	case errors.Is(err, service.ErrInsufficientInventory):
 		status = http.StatusConflict
 		message = "insufficient inventory"

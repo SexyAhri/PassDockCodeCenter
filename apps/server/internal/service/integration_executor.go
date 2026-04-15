@@ -65,7 +65,12 @@ func (s *Service) ExecuteIntegrationAction(
 		return nil, err
 	}
 	if !provider.Enabled || !action.Enabled {
-		return nil, ErrInvalidState
+		return nil, fmt.Errorf(
+			"%w: provider %s or action %s is disabled",
+			ErrInvalidState,
+			provider.ProviderKey,
+			action.ActionKey,
+		)
 	}
 
 	requestSpec, err := s.renderActionRequest(provider, action, input.TemplateData)

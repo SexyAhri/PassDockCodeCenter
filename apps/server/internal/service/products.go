@@ -141,7 +141,19 @@ func (s *Service) UpsertAdminProduct(ctx context.Context, routeID string, input 
 		return err
 	}
 
-	return s.db.WithContext(ctx).Model(existing).Updates(record).Error
+	return s.db.WithContext(ctx).Model(existing).Updates(map[string]any{
+		"product_type":             record.ProductType,
+		"sku":                      record.SKU,
+		"name":                     record.Name,
+		"description":              record.Description,
+		"display_price":            record.DisplayPrice,
+		"currency":                 record.Currency,
+		"enabled":                  record.Enabled,
+		"sort_order":               record.SortOrder,
+		"fulfillment_strategy_key": record.FulfillmentStrategyKey,
+		"delivery_strategy_key":    record.DeliveryStrategyKey,
+		"metadata":                 record.MetadataJSON,
+	}).Error
 }
 
 func (s *Service) DeleteAdminProduct(ctx context.Context, routeID string) error {
@@ -236,7 +248,17 @@ func (s *Service) UpsertAdminProductPrice(ctx context.Context, productRouteID st
 	if strings.TrimSpace(input.PriceID) == "" {
 		var existing model.ProductPrice
 		if err := identityQuery.First(&existing).Error; err == nil {
-			return s.db.WithContext(ctx).Model(&existing).Updates(record).Error
+			return s.db.WithContext(ctx).Model(&existing).Updates(map[string]any{
+				"product_id":      record.ProductID,
+				"template_name":   record.TemplateName,
+				"payment_method":  record.PaymentMethod,
+				"currency":        record.Currency,
+				"amount":          record.Amount,
+				"enabled":         record.Enabled,
+				"original_amount": record.OriginalAmount,
+				"billing_cycle":   record.BillingCycle,
+				"sort_order":      record.SortOrder,
+			}).Error
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
@@ -256,7 +278,17 @@ func (s *Service) UpsertAdminProductPrice(ctx context.Context, productRouteID st
 		return err
 	}
 
-	return s.db.WithContext(ctx).Model(existing).Updates(record).Error
+	return s.db.WithContext(ctx).Model(existing).Updates(map[string]any{
+		"product_id":      record.ProductID,
+		"template_name":   record.TemplateName,
+		"payment_method":  record.PaymentMethod,
+		"currency":        record.Currency,
+		"amount":          record.Amount,
+		"enabled":         record.Enabled,
+		"original_amount": record.OriginalAmount,
+		"billing_cycle":   record.BillingCycle,
+		"sort_order":      record.SortOrder,
+	}).Error
 }
 
 func (s *Service) DeleteAdminProductPrice(ctx context.Context, productRouteID, priceRouteID string) error {

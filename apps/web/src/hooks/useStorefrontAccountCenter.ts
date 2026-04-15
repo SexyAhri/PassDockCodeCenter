@@ -108,8 +108,10 @@ export function useStorefrontAccountCenter(session: StorefrontSession | null) {
       if (resolvedOrderNo) {
         const detail = await getStorefrontAccountOrderDetail(resolvedOrderNo)
         setSelectedOrder(detail)
+        setDeliveryResult(detail.deliveryResult)
       } else {
         setSelectedOrder(null)
+        setDeliveryResult(null)
       }
     } catch (nextError) {
       setError(getErrorMessage(nextError))
@@ -133,7 +135,7 @@ export function useStorefrontAccountCenter(session: StorefrontSession | null) {
       const detail = remoteEnabled ? await getStorefrontAccountOrderDetail(orderNo) : null
       setSelectedOrderNo(orderNo)
       setSelectedOrder(detail)
-      setDeliveryResult(null)
+      setDeliveryResult(detail?.deliveryResult ?? null)
     } catch (nextError) {
       setError(getErrorMessage(nextError))
     } finally {
@@ -167,6 +169,14 @@ export function useStorefrontAccountCenter(session: StorefrontSession | null) {
 
       try {
         const nextResult = await getStorefrontOrderDelivery(selectedOrderNo, selectedOrder?.orderAccessToken)
+        setSelectedOrder((prev) =>
+          prev
+            ? {
+                ...prev,
+                deliveryResult: nextResult,
+              }
+            : prev,
+        )
         setDeliveryResult(nextResult)
         return nextResult
       } catch (nextError) {

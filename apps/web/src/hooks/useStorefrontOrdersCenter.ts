@@ -57,7 +57,9 @@ export function useStorefrontOrdersCenter(input: UseStorefrontOrdersCenterInput)
   )
   const selectedEntry = entries.find((entry) => entry.order.orderNo === selectedOrderNo) ?? null
   const selectedProduct = selectedEntry ? productMap[selectedEntry.productSku] ?? null : null
-  const selectedDeliveryResult = selectedEntry ? deliveryResults[selectedEntry.order.orderNo] ?? null : null
+  const selectedDeliveryResult = selectedEntry
+    ? deliveryResults[selectedEntry.order.orderNo] ?? selectedEntry.order.deliveryResult ?? null
+    : null
   const selectedSource = selectedEntry
     ? (sources[selectedEntry.order.orderNo] ?? (remoteEnabled ? 'remote' : 'local'))
     : remoteEnabled
@@ -113,6 +115,10 @@ export function useStorefrontOrdersCenter(input: UseStorefrontOrdersCenterInput)
 
         persistStoredStorefrontOrder(productSku, nextOrder)
         syncEntries(setEntries, setSelectedOrderNo, trimmedOrderNo, storedOrderOptions)
+        setDeliveryResults((prev) => ({
+          ...prev,
+          [trimmedOrderNo]: nextOrder.deliveryResult,
+        }))
         setSources((prev) => ({ ...prev, [trimmedOrderNo]: 'remote' }))
         return nextOrder
       } catch (nextError) {
@@ -150,6 +156,10 @@ export function useStorefrontOrdersCenter(input: UseStorefrontOrdersCenterInput)
 
         persistStoredStorefrontOrder(selectedEntry.productSku || inferStorefrontOrderProductSku(nextOrder), nextOrder)
         syncEntries(setEntries, setSelectedOrderNo, orderNo, storedOrderOptions)
+        setDeliveryResults((prev) => ({
+          ...prev,
+          [orderNo]: nextOrder.deliveryResult,
+        }))
         setSources((prev) => ({ ...prev, [orderNo]: 'remote' }))
         return nextOrder
       } catch (nextError) {

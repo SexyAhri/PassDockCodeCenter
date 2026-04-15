@@ -360,6 +360,11 @@ func (s *Service) ConfirmAdminOrderPayment(ctx context.Context, orderNo string, 
 			if existingExternalPayment != nil {
 				return nil
 			}
+			if order.Status == "payment_confirmed" || order.Status == "failed" {
+				// Allow operators to re-run post-payment automation when the payment
+				// is already confirmed but fulfillment previously failed.
+				return nil
+			}
 			return ErrInvalidState
 		}
 

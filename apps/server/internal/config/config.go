@@ -55,6 +55,8 @@ type Config struct {
 	OKXWatcherTimeoutMS        int
 	OKXWatcherIntervalSeconds  int
 	OKXWatcherBatchSize        int
+	OKXAdapterChain            string
+	OKXAdapterReceiveAddress   string
 	AdminBearerToken           string
 	NewAPIProdBaseURL          string
 	NewAPIProdKeyID            string
@@ -118,6 +120,8 @@ func Load() Config {
 		OKXWatcherTimeoutMS:        getEnvInt("OKX_WATCHER_TIMEOUT_MS", 10000),
 		OKXWatcherIntervalSeconds:  getEnvInt("OKX_WATCHER_INTERVAL_SECONDS", 60),
 		OKXWatcherBatchSize:        getEnvInt("OKX_WATCHER_BATCH_SIZE", 50),
+		OKXAdapterChain:            getEnv("OKX_ADAPTER_CHAIN", "tron"),
+		OKXAdapterReceiveAddress:   getEnv("OKX_ADAPTER_RECEIVE_ADDRESS", ""),
 		AdminBearerToken:           getEnv("ADMIN_BEARER_TOKEN", ""),
 		NewAPIProdBaseURL:          getEnv("NEW_API_PROD_BASE_URL", ""),
 		NewAPIProdKeyID:            getEnv("NEW_API_PROD_KEY_ID", ""),

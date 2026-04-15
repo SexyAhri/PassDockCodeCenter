@@ -202,6 +202,8 @@ func newSystemSecurityTestService(t *testing.T, partial config.Config) *Service 
 	cfg.OKXWatcherTimeoutMS = partial.OKXWatcherTimeoutMS
 	cfg.OKXWatcherIntervalSeconds = partial.OKXWatcherIntervalSeconds
 	cfg.OKXWatcherBatchSize = partial.OKXWatcherBatchSize
+	cfg.OKXAdapterChain = partial.OKXAdapterChain
+	cfg.OKXAdapterReceiveAddress = partial.OKXAdapterReceiveAddress
 
 	db, err := database.Open(cfg)
 	if err != nil {

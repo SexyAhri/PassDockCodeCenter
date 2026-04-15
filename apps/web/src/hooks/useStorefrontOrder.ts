@@ -58,7 +58,7 @@ export function useStorefrontOrder(input: UseStorefrontOrderInput) {
     const storedOrder = getLatestStoredStorefrontOrderForProduct(product.sku, storedOrderOptions)
 
     setOrder(storedOrder)
-    setDeliveryResult(null)
+    setDeliveryResult(storedOrder?.deliveryResult ?? null)
     setSource(remoteEnabled ? 'remote' : 'local')
     setError(null)
   }, [product.sku, remoteEnabled])
@@ -79,7 +79,7 @@ export function useStorefrontOrder(input: UseStorefrontOrderInput) {
 
       if (!remoteEnabled) {
         applyOrderState(product.sku, fallbackOrder, 'local', setOrder, setSource)
-        setDeliveryResult(null)
+        setDeliveryResult(fallbackOrder.deliveryResult)
         setLoading(false)
         return fallbackOrder
       }
@@ -99,7 +99,7 @@ export function useStorefrontOrder(input: UseStorefrontOrderInput) {
         const nextOrder = mergeOrders(fallbackOrder, remoteOrder)
 
         applyOrderState(resolveOrderProductSku(nextOrder, product.sku), nextOrder, 'remote', setOrder, setSource)
-        setDeliveryResult(null)
+        setDeliveryResult(nextOrder.deliveryResult)
         return nextOrder
       } catch (nextError) {
         setSource('remote-error')
@@ -130,7 +130,7 @@ export function useStorefrontOrder(input: UseStorefrontOrderInput) {
         }
 
         applyOrderState(resolveOrderProductSku(storedOrder, product.sku), storedOrder, 'local', setOrder, setSource)
-        setDeliveryResult(null)
+        setDeliveryResult(storedOrder.deliveryResult)
         setLoading(false)
         return storedOrder
       }
@@ -143,7 +143,7 @@ export function useStorefrontOrder(input: UseStorefrontOrderInput) {
         const nextOrder = storedOrder ? mergeOrders(storedOrder, remoteOrder) : remoteOrder
 
         applyOrderState(resolveOrderProductSku(nextOrder, product.sku), nextOrder, 'remote', setOrder, setSource)
-        setDeliveryResult(null)
+        setDeliveryResult(nextOrder.deliveryResult)
         return nextOrder
       } catch (nextError) {
         if (storedOrder) {
@@ -154,7 +154,7 @@ export function useStorefrontOrder(input: UseStorefrontOrderInput) {
             setOrder,
             setSource,
           )
-          setDeliveryResult(null)
+          setDeliveryResult(storedOrder.deliveryResult)
           setError(getErrorMessage(nextError))
           return storedOrder
         }
@@ -183,6 +183,7 @@ export function useStorefrontOrder(input: UseStorefrontOrderInput) {
         const nextOrder = mergeOrders(order, remoteOrder)
 
         applyOrderState(resolveOrderProductSku(nextOrder, product.sku), nextOrder, 'remote', setOrder, setSource)
+        setDeliveryResult(nextOrder.deliveryResult)
         return nextOrder
       } catch (nextError) {
         setSource('remote-error')
@@ -220,6 +221,7 @@ export function useStorefrontOrder(input: UseStorefrontOrderInput) {
           setOrder,
           setSource,
         )
+        setDeliveryResult(nextOrder.deliveryResult)
         setLoading(false)
         return nextOrder
       }
@@ -230,6 +232,7 @@ export function useStorefrontOrder(input: UseStorefrontOrderInput) {
         const nextOrder = mergeOrders(order, remoteOrder)
 
         applyOrderState(resolveOrderProductSku(nextOrder, product.sku), nextOrder, 'remote', setOrder, setSource)
+        setDeliveryResult(nextOrder.deliveryResult)
         return nextOrder
       } catch (nextError) {
         setSource('remote-error')
@@ -294,6 +297,7 @@ export function useStorefrontOrder(input: UseStorefrontOrderInput) {
             setOrder,
             setSource,
           )
+          setDeliveryResult(nextLocalOrder.deliveryResult)
           return nextLocalOrder
         }
 
@@ -304,6 +308,7 @@ export function useStorefrontOrder(input: UseStorefrontOrderInput) {
           const nextOrder = mergeOrders(nextLocalOrder, remoteOrder)
 
           applyOrderState(resolveOrderProductSku(nextOrder, product.sku), nextOrder, 'remote', setOrder, setSource)
+          setDeliveryResult(nextOrder.deliveryResult)
           return nextOrder
         } catch {
           applyOrderState(
@@ -313,6 +318,7 @@ export function useStorefrontOrder(input: UseStorefrontOrderInput) {
             setOrder,
             setSource,
           )
+          setDeliveryResult(nextLocalOrder.deliveryResult)
           return nextLocalOrder
         }
       } catch (nextError) {
@@ -354,6 +360,7 @@ export function useStorefrontOrder(input: UseStorefrontOrderInput) {
           setOrder,
           setSource,
         )
+        setDeliveryResult(nextOrder.deliveryResult)
         setLoading(false)
         return nextOrder
       }
@@ -364,6 +371,7 @@ export function useStorefrontOrder(input: UseStorefrontOrderInput) {
         const nextOrder = mergeOrders(order, remoteOrder)
 
         applyOrderState(resolveOrderProductSku(nextOrder, product.sku), nextOrder, 'remote', setOrder, setSource)
+        setDeliveryResult(nextOrder.deliveryResult)
         return nextOrder
       } catch (nextError) {
         setSource('remote-error')
@@ -388,6 +396,12 @@ export function useStorefrontOrder(input: UseStorefrontOrderInput) {
 
       try {
         const nextDeliveryResult = await getStorefrontOrderDelivery(order.orderNo, order.orderAccessToken)
+        const nextOrder = {
+          ...order,
+          deliveryResult: nextDeliveryResult,
+        } satisfies StorefrontOrderSnapshot
+
+        applyOrderState(resolveOrderProductSku(nextOrder, product.sku), nextOrder, source, setOrder, setSource)
         setDeliveryResult(nextDeliveryResult)
         return nextDeliveryResult
       } catch (nextError) {
@@ -438,6 +452,7 @@ function buildFallbackOrder(
       reference: channel?.reference ?? orderNo,
     },
     paymentProofs: [],
+    deliveryResult: null,
   } satisfies StorefrontOrderSnapshot
 }
 

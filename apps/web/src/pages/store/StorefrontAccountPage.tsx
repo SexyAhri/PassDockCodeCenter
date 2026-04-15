@@ -137,6 +137,13 @@ export function StorefrontAccountPage(props: StorefrontAccountPageProps) {
         },
       ]
     : []
+  const canLoadDeliveryResult = Boolean(
+    account.selectedOrder &&
+      (
+        ['sent', 'sending'].includes(account.selectedOrder.deliveryStatus) ||
+        ['delivered', 'completed'].includes(account.selectedOrder.orderStatus)
+      ),
+  )
 
   async function handleSubmitTicket(values: TicketFormValues) {
     try {
@@ -274,9 +281,11 @@ export function StorefrontAccountPage(props: StorefrontAccountPageProps) {
                   <Button size="small" loading={account.loading} onClick={() => void account.reload()}>
                     {labels.refresh}
                   </Button>
-                  <Button size="small" loading={account.loading} onClick={() => void account.loadDeliveryResult()}>
-                    {labels.loadDeliveryResult}
-                  </Button>
+                  {canLoadDeliveryResult ? (
+                    <Button size="small" loading={account.loading} onClick={() => void account.loadDeliveryResult()}>
+                      {labels.loadDeliveryResult}
+                    </Button>
+                  ) : null}
                 </div>
               ) : null
             }
@@ -288,7 +297,7 @@ export function StorefrontAccountPage(props: StorefrontAccountPageProps) {
             )}
           </CheckoutSection>
 
-          {account.selectedOrder ? (
+          {account.selectedOrder && (account.deliveryResult || canLoadDeliveryResult) ? (
             <DetailRecordSection
               title={labels.deliveryResultTitle}
               emptyText={labels.deliveryResultEmpty}

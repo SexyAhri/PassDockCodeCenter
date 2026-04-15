@@ -211,7 +211,16 @@ func (s *Service) UpsertAdminPaymentChannel(ctx context.Context, routeID string,
 	if err != nil {
 		return err
 	}
-	return s.db.WithContext(ctx).Model(existing).Updates(record).Error
+	return s.db.WithContext(ctx).Model(existing).Updates(map[string]any{
+		"channel_key":      record.ChannelKey,
+		"channel_name":     record.ChannelName,
+		"channel_type":     record.ChannelType,
+		"provider_name":    record.ProviderName,
+		"settlement_mode":  record.SettlementMode,
+		"currency":         record.Currency,
+		"enabled":          record.Enabled,
+		"config_encrypted": record.ConfigJSON,
+	}).Error
 }
 
 func (s *Service) DeleteAdminPaymentChannel(ctx context.Context, routeID string) error {
@@ -274,7 +283,17 @@ func (s *Service) UpsertAdminProvider(ctx context.Context, routeID string, input
 	if err != nil {
 		return err
 	}
-	return s.db.WithContext(ctx).Model(existing).Updates(record).Error
+	return s.db.WithContext(ctx).Model(existing).Updates(map[string]any{
+		"provider_key":          record.ProviderKey,
+		"provider_name":         record.ProviderName,
+		"base_url":              record.BaseURL,
+		"auth_type":             record.AuthType,
+		"auth_config_encrypted": record.AuthConfigJSON,
+		"retry_times":           record.RetryTimes,
+		"timeout_ms":            record.TimeoutMS,
+		"health_status":         record.HealthStatus,
+		"enabled":               record.Enabled,
+	}).Error
 }
 
 func (s *Service) DeleteAdminProvider(ctx context.Context, routeID string) error {
@@ -368,7 +387,19 @@ func (s *Service) UpsertAdminAction(ctx context.Context, routeID string, input A
 	if err != nil {
 		return err
 	}
-	return s.db.WithContext(ctx).Model(existing).Updates(record).Error
+	return s.db.WithContext(ctx).Model(existing).Updates(map[string]any{
+		"provider_id":     record.ProviderID,
+		"action_key":      record.ActionKey,
+		"http_method":     record.HTTPMethod,
+		"path_template":   record.PathTemplate,
+		"success_path":    record.SuccessPath,
+		"message_path":    record.MessagePath,
+		"code_list_path":  record.CodeListPath,
+		"enabled":         record.Enabled,
+		"header_template": record.HeaderTemplateJSON,
+		"query_template":  record.QueryTemplateJSON,
+		"body_template":   record.BodyTemplateJSON,
+	}).Error
 }
 
 func (s *Service) DeleteAdminAction(ctx context.Context, routeID string) error {
@@ -429,7 +460,18 @@ func (s *Service) UpsertAdminFulfillmentStrategy(ctx context.Context, routeID st
 	if err != nil {
 		return err
 	}
-	return s.db.WithContext(ctx).Model(existing).Updates(record).Error
+	return s.db.WithContext(ctx).Model(existing).Updates(map[string]any{
+		"strategy_key":      record.StrategyKey,
+		"strategy_name":     record.StrategyName,
+		"fulfillment_type":  record.FulfillmentType,
+		"provider_key":      record.ProviderKey,
+		"action_key":        record.ActionKey,
+		"enabled":           record.Enabled,
+		"request_template":  record.RequestTemplateJSON,
+		"result_schema":     record.ResultSchemaJSON,
+		"delivery_template": record.DeliveryTemplateJSON,
+		"retry_policy":      record.RetryPolicyJSON,
+	}).Error
 }
 
 func (s *Service) DeleteAdminFulfillmentStrategy(ctx context.Context, routeID string) error {
@@ -489,7 +531,15 @@ func (s *Service) UpsertAdminDeliveryStrategy(ctx context.Context, routeID strin
 	if err != nil {
 		return err
 	}
-	return s.db.WithContext(ctx).Model(existing).Updates(record).Error
+	return s.db.WithContext(ctx).Model(existing).Updates(map[string]any{
+		"strategy_key":     record.StrategyKey,
+		"strategy_name":    record.StrategyName,
+		"channel_type":     record.ChannelType,
+		"mask_policy":      record.MaskPolicy,
+		"resend_allowed":   record.ResendAllowed,
+		"enabled":          record.Enabled,
+		"message_template": record.MessageTemplateJSON,
+	}).Error
 }
 
 func (s *Service) DeleteAdminDeliveryStrategy(ctx context.Context, routeID string) error {

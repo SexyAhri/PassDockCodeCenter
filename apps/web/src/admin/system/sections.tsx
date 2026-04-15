@@ -25,6 +25,7 @@ type SectionActionHandlers = {
   onEdit: (record: Record<string, unknown>) => void
   onDelete: (record: Record<string, unknown>) => void
   onTest: (record: Record<string, unknown>) => void
+  onToggleEnabled: (record: Record<string, unknown>, enabled: boolean) => void
 }
 
 type SectionLocalLabels = {
@@ -423,6 +424,21 @@ function getOperationColumn(
     fixed: 'right' as const,
     render: (_value: unknown, record: Record<string, unknown>) => (
       <Space size={4}>
+        {typeof record.enabled === 'boolean' ? (
+          <Button
+            size="small"
+            type="link"
+            onClick={() => actions.onToggleEnabled(record, !Boolean(record.enabled))}
+          >
+            {Boolean(record.enabled)
+              ? locale === 'zh-CN'
+                ? '禁用'
+                : 'Disable'
+              : locale === 'zh-CN'
+                ? '启用'
+                : 'Enable'}
+          </Button>
+        ) : null}
         <Button size="small" type="link" onClick={() => actions.onEdit(record)}>
           {labels.edit}
         </Button>
